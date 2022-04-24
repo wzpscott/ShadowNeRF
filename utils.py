@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from rays import Rays
+import os, os.path as osp
+from tqdm import tqdm
 
 def img2mse(x, y):
     x = x.squeeze()
@@ -39,3 +41,7 @@ def plot(imgs, m, n, save_dir=''):
         plt.imshow(img)
         plt.axis('off')
     plt.savefig(save_dir)
+
+def write(s, fp):
+    tqdm.write(s)
+    fp.write(s)

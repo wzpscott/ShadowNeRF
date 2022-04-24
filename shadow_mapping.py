@@ -1,3 +1,6 @@
+# NOTE not working now
+# based on nerf-pytorch, need to integret with current codes
+
 import os
 import sys
 import numpy as np
@@ -215,57 +218,4 @@ rgb_vis = rgb_vis + (rgb_vis==0)
 
 plot([rgb_comp, depth_test, depth_err, rgb_light, rgb_cam, rgb_vis], 2, 3, save_dir='test/light1.png')
 
-
-        # z_light = depth_texture[i][j]
-        # z_cam = 
-
-# plot_depth(pts_cam, save_dir='test/cam_world.png')
-# plot_depth(pts_light, save_dir='test/light_world.png')
-
-# pts_cam_gt = pts_cam @ w2c_cam.T @ proj.T
-# # pts_cam_gt = pts_cam @ w2c_cam.T
-# plot_depth(pts_cam_gt, save_dir='test/cam_gt.png')
-
-# pts_light_gt = pts_light @ w2c_light.T @ proj.T
-# z_gt = pts_light_gt[..., 2]
-# print('z_gt',z_gt.shape)
-
-# plot_depth(pts_light_gt, save_dir='test/light_gt.png')
-
-# pts_light = pts_cam @ w2c_light.T @ proj.T
-# pts_light = pts_light 
-
-# # normalizer = pts_light[..., 3, None]
-# # pts_light = pts_light/normalizer
-# # pts_light = pts_light.reshape(W,H,4)
-
-# depth_test = np.zeros([W, H])
-# bias = 0.3
-# for j in range(W):
-#     for i in range(H):
-#         pts_cam_gt = pts_cam.reshape(W, H, 4)
-#         x,y = pts_cam_gt[i,j,:][0], pts_cam_gt[i,j,:][1]
-#         z = pts_light[i,j,:][2]
-#         # pt = pts_light[i,j,:]
-#         # x,y,z = pt[0], pt[1], pt[2]
-#         if abs(x)>1 or abs(y)>1:
-#             depth_test[i][j] = 0
-#             continue
-#         x_idx, y_idx = int(x), int(y)
-#         if abs(z-z_gt[x_idx][y_idx]) < bias:
-#             depth_test[i][j] = 1
-#         else:
-#             depth_test[i][j] = 2
-
-# def composite(seg, rgb):
-#     seg_g = (seg==1).astype(float) # depth test pass
-#     seg_r = (seg==2).astype(float) # depth test fail
-#     seg_b = (seg==0).astype(float) # depth test out of range
-
-#     seg_rgb = np.stack([seg_r, seg_g, seg_b], axis=2) * 0.5
-#     return rgb+seg_rgb
-
-# rgb_comp = composite(depth_test, rgb_cam)
-# plot([rgb_comp, rgb_light], 1, 2, save_dir='test/light.png')
-# plot_depth(pts_light, clip=True, save_dir='test/light.png')
 

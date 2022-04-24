@@ -1,0 +1,11 @@
+expname = hotdog_test
+basedir = ./logs
+datadir = ./data/nerf_synthetic_relight/hotdog
+
+factor = 8
+llffhold = 8
+
+N_samples = 128
+
+use_viewdirs = True
+raw_noise_std = 1e0

@@ -1,3 +1,4 @@
+from re import I
 import numpy as np
 import torch 
 import torch.nn as nn
@@ -85,8 +86,16 @@ class Rays():
         self.properties = properties
         return properties
         
-    def batchify(self, batch_size, random=True):
+    def batchify(self, batch_size, random=True, crop=False):
         idx = list(range(self.W * self.H))
+        if crop:
+            idx_crop = []
+            for i in idx:
+                w, h = i//W, i%W
+                if w > W/4 and w < W/4*3 and h > H/4 and h < H/4*3:
+                    idx_crop.append(i)
+            idx = idx_crop
+            
         if random:
             np.random.shuffle(idx)
 
