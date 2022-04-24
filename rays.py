@@ -1,11 +1,11 @@
-from re import I
 import numpy as np
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+from encoding import frequency_encode
 
 class Rays():
-    def __init__(self, images, c2w, W, H, focal, near, far, device='cpu'):
+    def __init__(self, images, c2w, W, H, focal, near, far, c2w_light=None, device='cpu'):
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
         images, c2w = torch.Tensor(images), torch.Tensor(c2w)
@@ -19,6 +19,13 @@ class Rays():
 
         self.o = rays_o.reshape(-1,4).to(device) # [W*H,4], world coordinate
         self.d = rays_d.reshape(-1,4).to(device) # [W*H,4], world coordinate
+
+        self.cam_pos = c2w[:,-1].to(device)
+        if c2w_light is not None:
+            c2w_light = torch.Tensor(c2w_light)
+            self.light_pos = c2w_light[:,-1].to(device)
+        else:
+            self.light_pos = None
 
         self.view_mat = torch.linalg.inv(c2w).to(device) # view matrix, or world-to-camera matrix
         self.proj_mat = torch.Tensor([
@@ -49,39 +56,56 @@ class Rays():
         self.z_vals = z_vals
         return pts
 
-    def query(self, encode_fn, decode_fn):
-        if 'pts' not in self.__dict__.keys():
-            raise ValueError('do not have attr "pts", need to execute "sample_along_rays" first')
+    # def query(self, encode_fn, decode_fn):
+    #     if 'pts' not in self.__dict__.keys():
+    #         raise ValueError('do not have attr "pts", need to execute "sample_along_rays" first')
         
-        pts = self.pts[...,:3] # [N_rays, N_samples, 3], positions of sampled points
-        dirs = self.d[...,None,:3].expand_as(pts) # [N_rays, N_samples, 3], view directions of sampled points
+    #     pts = self.pts[...,:3] # [N_rays, N_samples, 3], positions of sampled points
+    #     dirs = self.d[...,None,:3].expand_as(pts) # [N_rays, N_samples, 3], view directions of sampled points
 
-        pts_encoded, dirs_encoded = encode_fn(pts, dirs)
-        raw_properties = decode_fn(pts_encoded, dirs_encoded)# a dict stores {property_name: X^[N_rays, N_samples, _]}
+    #     pts_encoded, dirs_encoded = encode_fn(pts, dirs)
+    #     raw_properties = decode_fn(pts_encoded, dirs_encoded, cam_pos=self.cam_pos, light_pos=self.light_pos) # a dict stores {property_name: X^[N_rays, N_samples, _]}
+    #     self.raw_properties = raw_properties
+    #     return raw_properties
+    def encode(self, L_x, L_dir, encode_fn):
+        if encode_fn == 'freq':
+            pts = self.pts[...,:3] # [N_rays, N_samples, 3], positions of sampled points
+            dirs = self.d[...,None,:3].expand_as(pts) # [N_rays, N_samples, 3], view directions of sampled points
+            pts_encoded, dirs_encoded = frequency_encode(pts, L_x), frequency_encode(dirs, L_dir)
+            self.pts_encoded, self.dirs_encoded = pts_encoded, dirs_encoded
+        else:
+            raise NotImplementedError()
+
+    def decode(self, model):
+        raw_properties = model(self.pts_encoded, self.dirs_encoded, self.pts[...,:3], self.d[...,None,:3], cam_pos=self.cam_pos, light_pos=self.light_pos)
         self.raw_properties = raw_properties
         return raw_properties
 
-    def volume_render(self):
+    def volume_render(self, verbose=False):
         if 'raw_properties' not in self.__dict__.keys():
-            raise ValueError('do not have attr "raw_properties", need to execute "query" first')
+            raise ValueError('do not have attr "raw_properties", need to execute "encode" and "decode" first')
 
         dists = self.z_vals[...,1:] - self.z_vals[...,:-1]
         dists = torch.cat(
             [dists, torch.Tensor([1e10]).expand(dists[...,:1].shape)], 
             dim=-1)  # [N_rays, N_samples]
 
-        # dists = (dists * self.d).unsqueeze(-1)
         dists = (dists * torch.norm(self.d[..., None, :3], dim=-1)).unsqueeze(-1)
 
         alpha, rgb = self.raw_properties['alpha'], self.raw_properties['rgb']
         alpha = 1.-torch.exp(-F.relu(alpha) * dists)
-        rgb = torch.sigmoid(rgb)
 
         weights = alpha * torch.cumprod(
             torch.cat([torch.ones(alpha.shape[0], 1, 1), 1.-alpha + 1e-10], 1), 1)[:, :-1, :]
 
         properties = {}
-        for k,v in {'depth':weights, 'acc': alpha, 'rgb':rgb}.items():
+        if not verbose:
+            render_dict = {'depth':weights, 'acc': alpha, 'rgb':rgb}
+        else:
+            normal, ambient, diffuse, specular = self.raw_properties['normal'], self.raw_properties['ambient'], self.raw_properties['diffuse'], self.raw_properties['specular']
+            render_dict = {'depth':weights, 'acc': alpha, 'rgb':rgb,
+            'normal':normal, 'ambient':ambient, 'diffuse':diffuse, 'specular':specular}
+        for k,v in render_dict.items():
             properties[k] = torch.sum(weights * v, 1)
         self.properties = properties
         return properties
@@ -95,7 +119,7 @@ class Rays():
                 if w > W/4 and w < W/4*3 and h > H/4 and h < H/4*3:
                     idx_crop.append(i)
             idx = idx_crop
-            
+
         if random:
             np.random.shuffle(idx)
 
@@ -103,7 +127,7 @@ class Rays():
             batch_idx = idx[i:i+batch_size]
             rays_o, rays_d = self.o[batch_idx], self.d[batch_idx]
             rgb_gt = self.images[batch_idx]
-            yield RaysBatch(rays_o, rays_d, rgb_gt, self.near, self.far, self.W, self.H, self.focal)
+            yield RaysBatch(rays_o, rays_d, rgb_gt, self.cam_pos, self.light_pos, self.near, self.far, self.W, self.H, self.focal)
 
     def peek(self):
         print(f'attrs: {(self.__dict__).keys()}')
@@ -121,19 +145,22 @@ class Rays():
                     example {self.properties[prop][0,:].data}')
 
 class RaysBatch(Rays):
-    def __init__(self, rays_o, rays_d, rgb_gt, near, far, W, H, focal):
+    def __init__(self, rays_o, rays_d, rgb_gt, cam_pos, light_pos, near, far, W, H, focal):
         self.batch_size = rays_o.shape[0]
         self.o = rays_o # [batch_size, 4]
         self.d = rays_d # [batch_size, 4]
         self.rgb_gt = rgb_gt
+        self.cam_pos, self.light_pos = cam_pos, light_pos
         self.near, self.far, self.W, self.H, self.focal = near, far, W, H, focal
 
 if __name__ == '__main__':
     c2w = torch.rand(4,4)
+    c2w_light = torch.rand(4,4)
     W, H = 100, 100
+    images = torch.rand(W,H,3)
     focal = 1
     near, far = 2,6
-    rays = Rays(c2w, W, H, focal, near, far)
+    rays = Rays(images, c2w, W, H, focal, near, far, c2w_light)
     rays.peek()
 
     # ray_batches = rays.batchify(128)

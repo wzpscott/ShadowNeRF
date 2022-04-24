@@ -13,7 +13,7 @@ import os, os.path as osp
 # from load_blender import load_blender_data
 from load_data import load_blender_data
 from rays import Rays
-from models import NeRF
+from models import NeRF, NePhong
 from encoding import frequency_encode
 from utils import *
 
@@ -23,7 +23,7 @@ from utils import *
 # images, poses, render_poses, hwf, i_split = load_blender_data(
 #     datadir, half_res=True, testskip=8)
 
-exp_name = 'hotdog_relight_test'
+exp_name = 'hotdog_relight_phong'
 base_dir = './logs'
 log_dir = osp.join(base_dir, exp_name)
 os.makedirs(log_dir, exist_ok=True)
@@ -35,7 +35,7 @@ fp = open(log_file_dir, 'w')
 fp.write(f'output log for {exp_name}')
 
 datadir = './data/nerf_synthetic_relight/hotdog'
-images, cam_poses, light_poses, hwf, i_splits = load_blender_data(datadir, include_light=True, resize_factor=10)
+images, cam_poses, light_poses, hwf, i_splits = load_blender_data(datadir, include_light=True, resize_factor=1)
 images = images[..., :3]*images[..., -1:] + (1.-images[..., -1:]) # white background
 
 near = 2.
@@ -43,7 +43,7 @@ far = 6.
 H, W, focal = hwf
 
 # start training
-NUM_EPOCHS = 10
+NUM_EPOCHS = 100
 BATCH_SIZE = 1024
 NUM_SAMPLES = 128
 # NUM_SAMPLES_UNIFORM = 64
@@ -56,11 +56,13 @@ decay_rate = 0.1
 decay_steps = lrate_decay * 1000
 
 
-model = NeRF(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+# model = NeRF(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+model = NePhong(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+
 model = model.to(DEVICE)
 data = []
-for img, c2w in zip(images, cam_poses):
-    data.append(Rays(img, c2w, W, H, focal, near, far, DEVICE))
+for img, c2w, c2w_light in zip(images, cam_poses, light_poses):
+    data.append(Rays(img, c2w, W, H, focal, near, far, c2w_light, DEVICE))
 
 train_data = [data[i] for i in i_splits[0]]
 val_data = [data[i] for i in i_splits[1]]
@@ -89,7 +91,8 @@ for epoch in range(NUM_EPOCHS):
             crop = False
         for i, rays_batch in enumerate(rays.batchify(BATCH_SIZE, crop)):
             rays_batch.sample_along_rays(NUM_SAMPLES)
-            rays_batch.query(encode_fn, decode_fn)
+            rays_batch.encode(L_x, L_dir, encode_fn='freq')
+            rays_batch.decode(model)
             rays_batch.volume_render()
             # rays_batch.peek()
 
@@ -117,7 +120,7 @@ for epoch in range(NUM_EPOCHS):
 
     losses = []
     for rays in tqdm(val_data):
-        rgb_pred, depth_pred = eval_image(rays, encode_fn, decode_fn, BATCH_SIZE, NUM_SAMPLES)
+        rgb_pred, depth_pred, normal_pred, ambient_pred, diffuse_pred, specular_pred = eval_image(rays, L_x, L_dir, model, BATCH_SIZE, NUM_SAMPLES)
         rgb_gt = rays.images.cpu()
         losses.append(img2mse(rgb_pred, rgb_gt))
         break
@@ -126,7 +129,8 @@ for epoch in range(NUM_EPOCHS):
     write(f'Epoch: {epoch+1} Loss: {loss.item()} PSNR: {psnr.item()}', fp)   
 
     rgb, depth, rgb_gt = rgb_pred.reshape(W, H, 3), depth_pred.reshape(W, H), rgb_gt.reshape(W, H, 3)
-    plot([rgb, depth, rgb_gt, np.ones_like(rgb_gt)], 2, 2 , save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
+    normal_pred, ambient_pred, diffuse_pred, specular_pred = normal_pred.reshape(W, H, 3), ambient_pred.reshape(W,H,3), diffuse_pred.reshape(W,H,3), specular_pred.reshape(W,H,3)
+    plot([rgb, depth, rgb_gt, normal_pred, ambient_pred, diffuse_pred, specular_pred, torch.ones_like(rgb)], 2, 4 , save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
 
 
 write('--------------------------------------------------------------', fp)
@@ -134,10 +138,13 @@ write('--------------------------------------------------------------', fp)
 write(f'start evaluation on test data...', fp)
 losses = []
 for i, rays in enumerate(tqdm(test_data)):
-    rgb_pred, depth_pred = eval_image(rays, encode_fn, decode_fn, BATCH_SIZE, NUM_SAMPLES)
+    rgb_pred, depth_pred, normal_pred, ambient_pred, diffuse_pred, specular_pred = eval_image(rays, L_x, L_dir, model, BATCH_SIZE, NUM_SAMPLES)
     rgb_gt = rays.images.cpu()
     rgb_pred, depth_pred, rgb_gt = rgb_pred.reshape(W, H, 3), depth_pred.reshape(W, H), rgb_gt.reshape(W, H, 3)
-    plot([rgb_pred, depth_pred, rgb_gt, np.ones_like(rgb_gt)], 2, 2, save_dir=f'{log_dir}/test/{i}.png')
+    normal_pred, ambient_pred, diffuse_pred, specular_pred = \
+        normal_pred.reshape(W, H, 3), ambient_pred.reshape(W,H,3), diffuse_pred.reshape(W,H,3), specular_pred.reshape(W,H,3)
+    plot([rgb_pred, depth_pred, rgb_gt, normal_pred, ambient_pred, diffuse_pred, specular_pred, np.ones_like(rgb_gt)], 
+        2, 2, save_dir=f'{log_dir}/test/{i}.png')
     losses.append(img2mse(rgb_pred, rgb_gt))
 loss = sum(losses)/len(losses)
 psnr = mse2psnr(loss)
