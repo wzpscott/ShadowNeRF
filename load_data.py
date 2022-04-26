@@ -8,9 +8,10 @@ def load_from_json(transforms, include_light=True, resize_factor=1):
     imgs = []
     cam_poses = []
     light_poses = []
+    i_light_poses = []
 
     frames = transforms['frames']
-    for frame in frames:
+    for i, frame in enumerate(frames):
         img = imageio.imread(frame['file_path'])
         cam_pose = np.array(frame['transform_matrix_cam'])
         if include_light:     
@@ -20,6 +21,7 @@ def load_from_json(transforms, include_light=True, resize_factor=1):
         cam_poses.append(cam_pose)
         if include_light:
             light_poses.append(light_pose)
+            i_light_poses.append(i%10)
 
     imgs = (np.array(imgs) / 255.).astype(np.float32) # keep all 4 channels (RGBA)
     cam_poses = np.array(cam_poses).astype(np.float32)
@@ -43,6 +45,7 @@ def load_from_json(transforms, include_light=True, resize_factor=1):
         'imgs':imgs,
         'cam_poses': cam_poses,
         'light_poses':light_poses,
+        'i_light_poses':i_light_poses, 
         'hwf':[H, W, focal]
     }
     return data
@@ -59,6 +62,7 @@ def load_blender_data(basedir, include_light=True, resize_factor=2):
     images = np.concatenate([data_train['imgs'], data_test['imgs']], axis=0)
     cam_poses = np.concatenate([data_train['cam_poses'], data_test['cam_poses']], axis=0)
     light_poses = np.concatenate([data_train['light_poses'], data_test['light_poses']], axis=0)
+    i_light_poses = data_train['i_light_poses'] + data_test['i_light_poses']
 
     N_train = data_train['imgs'].shape[0]
     N_test = data_test['imgs'].shape[0]
@@ -68,4 +72,4 @@ def load_blender_data(basedir, include_light=True, resize_factor=2):
 
     hwf = data_train['hwf']
 
-    return images, cam_poses, light_poses, hwf, i_splits
+    return images, cam_poses, light_poses, i_light_poses, hwf, i_splits

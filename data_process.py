@@ -26,8 +26,6 @@ for img_name in os.listdir(raw_data_dir):
 
     shutil.copy(raw_img_dir, img_dir)
 
-
-# transforms = json.loads(osp.join(raw_data_dir, 'transforms.json'))
 with open(osp.join(raw_data_dir, 'transforms.json'), 'r') as fp:
     transforms = json.load(fp)
 camera_angle_x = transforms['camera_angle_x']

@@ -38,7 +38,7 @@ class NeRF(nn.Module):
             h = F.relu(h)
         rgb = self.rgb_linear(h)
         rgb = torch.sigmoid(rgb)
-        # output = torch.cat([alpha, rgb], dim=-1)
+
         output = {'alpha':alpha, 'rgb':rgb}
         return output
 
@@ -67,7 +67,7 @@ class NePhong(nn.Module):
         self.diffuse_linear = nn.Linear(W//2, 3)
         self.specular_linear = nn.Linear(W//2, 3)
     
-    def forward(self, x_encoded, view_dir_encoded, x, view_dir, cam_pos, light_pos):
+    def forward(self, x_encoded, view_dir_encoded, x, view_dir, cam_pos, light_pos=None, pretrain=False):
         h = x_encoded
         for i, l in enumerate(self.x_linears):
             h = self.x_linears[i](h)
@@ -78,9 +78,16 @@ class NePhong(nn.Module):
         alpha = self.alpha_linear(h)
         shininess = self.shininess_linear(h)
         ambient = self.ambient_linear(h)
+        ambient = torch.sigmoid(ambient)
         normal = self.normal_linear(h)
 
         feature = self.feature_linear(h)
+        if light_pos is None:
+            output = {
+                'alpha': alpha, 
+                'rgb': ambient, 
+                }
+            return output
 
         h = torch.cat([feature, view_dir_encoded], -1)
         for i, l in enumerate(self.dir_linears):
@@ -92,16 +99,14 @@ class NePhong(nn.Module):
 
         diffuse = torch.sigmoid(diffuse)
         specular = torch.sigmoid(specular)
-        ambient = torch.sigmoid(ambient)
 
-        view_dir_ = F.normalize(view_dir, dim=-1)
         view_dir = x - cam_pos[:3].reshape(1,1,3) # [N_rays, N_samples, 3]
         view_dir = F.normalize(view_dir, dim=-1)      
     
         light_dir = x - light_pos[:3].reshape(1,1,3) # [N_rays, N_samples, 3]
         light_dir = F.normalize(light_dir, dim=-1)
 
-        rgb = self.shade(diffuse, specular, ambient, shininess, normal, view_dir, light_dir, light_color=1)
+        rgb = self.shade(diffuse, specular, ambient, shininess, normal, view_dir, light_dir, light_color=1, pretrain=pretrain)
         output = {
             'alpha': alpha, 
             'rgb': rgb, 
@@ -114,11 +119,13 @@ class NePhong(nn.Module):
         return output
 
     @staticmethod
-    def shade(diffuse, specular, ambient, shininess, normal, view_dir, light_dir, light_color=1):
-
+    def shade(diffuse, specular, ambient, shininess, normal, view_dir, light_dir, light_color, pretrain):
         normal = F.normalize(normal, dim=-1) # [N_rays, N_samples, 3]
-        view_dir = F.normalize(view_dir) # # [N_rays, N_samples, 3]
-        light_dir = F.normalize(light_dir) # [N_rays, N_samples, 3]
+        view_dir = F.normalize(view_dir, dim=-1) # # [N_rays, N_samples, 3]
+        light_dir = F.normalize(light_dir, dim=-1) # [N_rays, N_samples, 3]
+
+        # TODO : is there a better way to deal with shininess?
+        shininess = torch.sigmoid(shininess)
 
         # ambient
         ambient = light_color * ambient
@@ -130,13 +137,16 @@ class NePhong(nn.Module):
         #specular
         reflect_dir = view_dir - 2 * ((normal*light_dir).sum(dim=-1,keepdim=True)) * normal
         reflect_dir = F.normalize(reflect_dir, dim=-1)
-        # print(reflect_dir[0,0,:])
-        # raise ValueError
+
         spec = torch.max((view_dir*reflect_dir).sum(dim=-1,keepdim=True), torch.zeros(1))
-        spec = torch.pow(spec+1e-5, shininess) # add 1e-5 to avoid numeric unstable
+        # spec = torch.pow(spec+1e-5, shininess) # add 1e-5 to avoid numeric unstable
+        spec = spec * shininess
         specular = light_color * spec * specular
-        rgb = 0.1 * ambient + diffuse + specular
-        # rgb = 0.1*ambient + diffuse
+
+        if pretrain:
+            rgb = ambient
+        else:
+            rgb = ambient + diffuse + specular
 
         return rgb
         
