@@ -23,7 +23,7 @@ from utils import *
 # images, poses, render_poses, hwf, i_split = load_blender_data(
 #     datadir, half_res=True, testskip=8)
 
-exp_name = 'hotdog_relight_phong_test'
+exp_name = 'hotdog_1'
 base_dir = './logs'
 log_dir = osp.join(base_dir, exp_name)
 os.makedirs(log_dir, exist_ok=True)
@@ -36,7 +36,7 @@ with open(log_file_dir, 'w') as fp:
 
 datadir = './data/nerf_synthetic_relight/hotdog'
 images, cam_poses, light_poses, i_light_poses, hwf, i_splits = load_blender_data(
-                                                                datadir, include_light=True, resize_factor=20)
+                                                                datadir, include_light=True, resize_factor=8)
 images = images[..., :3]*images[..., -1:] + (1.-images[..., -1:]) # white background
 
 near = 2.
@@ -45,6 +45,7 @@ H, W, focal = hwf
 
 # start training
 NUM_EPOCHS = 100
+cur_epoch = 0 # current epochs(for resuming training)
 BATCH_SIZE = 1024
 NUM_SAMPLES = 128
 # NUM_SAMPLES_UNIFORM = 64
@@ -56,9 +57,16 @@ lrate_decay = 500
 decay_rate = 0.1
 decay_steps = lrate_decay * 1000
 
-
 # model = NeRF(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
 model = NePhong(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+grad_vars = list(model.parameters())
+optimizer = torch.optim.Adam(params=grad_vars, lr=lrate, betas=(0.9, 0.999))
+if osp.exists(osp.join(log_dir, 'checkpoint.pt')):
+    checkpoint = torch.load(osp.join(log_dir, 'checkpoint.pt'))
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    cur_epoch = checkpoint['epoch']
+    loss = checkpoint['loss']
 model = model.to(DEVICE)
 
 data = []
@@ -74,12 +82,9 @@ light_data = []
 for i in range(10):
     light_data.append(LightRays(light_poses[i], W, H, focal, near, far, DEVICE))
 
-grad_vars = list(model.parameters())
-optimizer = torch.optim.Adam(params=grad_vars, lr=lrate, betas=(0.9, 0.999))
-
 iter = 0
 render_list = ['normal', 'ambient', 'diffuse', 'specular']
-for epoch in range(NUM_EPOCHS):
+for epoch in range(cur_epoch, NUM_EPOCHS):
     write('--------------------------------------------------------------', log_file_dir)
     write('--------------------------------------------------------------', log_file_dir)
     write(f'EPOCH {epoch+1}/{NUM_EPOCHS}', log_file_dir)
@@ -165,6 +170,14 @@ for epoch in range(NUM_EPOCHS):
     rgb_cam, rgb_light, rgb_gt = rgb_cam.reshape(W, H, 3), rgb_light.reshape(W, H, 3), rgb_gt.reshape(W, H, 3)
     plot([rgb_cam, rgb_light, rgb_gt, depth_cam, depth_light, shadow, xs, x_gts], 
         2, 4 , save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
+
+
+    torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            }, save_dir=f'{log_dir}/checkpoint.pt')
 
 write('--------------------------------------------------------------', log_file_dir)
 write('--------------------------------------------------------------', log_file_dir)

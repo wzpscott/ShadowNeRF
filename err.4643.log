@@ -1,0 +1,20 @@
+bash: b: command not found
+bash: b: command not found
+Traceback (most recent call last):
+  File "/hpc/users/CONNECT/zipengwang/ShadowNeRF/run.py", line 38, in <module>
+    images, cam_poses, light_poses, i_light_poses, hwf, i_splits = load_blender_data(
+  File "/hpc/users/CONNECT/zipengwang/ShadowNeRF/load_data.py", line 59, in load_blender_data
+    data_train =load_from_json(transforms_train, include_light, resize_factor)
+  File "/hpc/users/CONNECT/zipengwang/ShadowNeRF/load_data.py", line 15, in load_from_json
+    img = imageio.imread(frame['file_path'])
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/imageio/__init__.py", line 96, in imread
+    return imread_v2(uri, format=format, **kwargs)
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/imageio/v2.py", line 201, in imread
+    with imopen(uri, "ri", **imopen_args) as file:
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/imageio/core/imopen.py", line 120, in imopen
+    request = Request(uri, io_mode, format_hint=format_hint)
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/imageio/core/request.py", line 248, in __init__
+    self._parse_uri(uri)
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/imageio/core/request.py", line 388, in _parse_uri
+    raise FileNotFoundError("No such file: '%s'" % fn)
+FileNotFoundError: No such file: '/home/wzpscott/NeuralRendering/shadownerf/data/nerf_synthetic_relight/hotdog/image/0.png'

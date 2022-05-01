@@ -1,0 +1,29 @@
+
+Sender: Unischeduler System <CONNECT.zipengwang@mgt02>
+Subject: Job 4642: </tmp/.jhjobs.CONNECT.zipengwang3001152/1651372410.4642.1.shell> Exited
+
+Job </tmp/.jhjobs.CONNECT.zipengwang3001152/1651372410.4642.1.shell> was submitted from host <mgt02> by user <CONNECT.zipengwang>.
+Job was executed on host(s) <4*g-node03>, in queue <gpu>, as user <CONNECT.zipengwang>.
+</hpc/users/CONNECT/zipengwang> was used as the home directory.
+</hpc/users/CONNECT/zipengwang/ShadowNeRF> was used as the working directory.
+Started at 2022-05-01 10:31:50
+Results reported at 2022-05-01 10:33:04
+
+Your job looked like:
+
+------------------------------------------------------------
+# User input
+/tmp/.jhjobs.CONNECT.zipengwang3001152/1651372410.4642.1.shell
+------------------------------------------------------------
+
+Exited with exit code 130.
+
+Resource usage summary:
+
+    CPU time   :            3.92 sec.
+    Max Memory :               994 MB
+    Max Processes  :               3
+
+
+The output (if any) follows:
+

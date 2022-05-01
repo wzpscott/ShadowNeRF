@@ -1,0 +1,23 @@
+bash: b: command not found
+bash: b: command not found
+Traceback (most recent call last):
+  File "/hpc/users/CONNECT/zipengwang/ShadowNeRF/run.py", line 14, in <module>
+    from load_data import load_blender_data
+  File "/hpc/users/CONNECT/zipengwang/ShadowNeRF/load_data.py", line 5, in <module>
+    import cv2
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/cv2/__init__.py", line 190, in <module>
+    bootstrap()
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/cv2/__init__.py", line 184, in bootstrap
+    if __load_extra_py_code_for_module("cv2", submodule, DEBUG):
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/site-packages/cv2/__init__.py", line 37, in __load_extra_py_code_for_module
+    py_module = importlib.import_module(module_name)
+  File "/hpc/users/CONNECT/zipengwang/.conda/envs/nerf/lib/python3.9/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1030, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 680, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 846, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 941, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1040, in get_data
+KeyboardInterrupt
