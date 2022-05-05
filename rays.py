@@ -149,16 +149,12 @@ class BatchCamRays(BatchRays):
             return x/N
 
         def get_terminate_pts(rays_o, rays_d, depth):
-            rays_d = F.normalize(rays_d, dim=-1)
             depth = depth.reshape(-1,1)
-            # depth[:,0] = depth[:,0].clip(-6,-2)
-            # depth[:,0] = depth[:,0].clip(2,6)
             pts = rays_o + depth * rays_d
-            assert pts.shape[-1] == 4
             return pts
 
-        # depth_cam, depth_light = self.pixel_properties['depth'], light_rays.depth_map
-        depth_cam, depth_light = self.pixel_properties['depth'], light_rays.pixel_properties['depth']
+        depth_cam, depth_light = self.pixel_properties['depth'], light_rays.depth_map
+        # depth_cam, depth_light = self.pixel_properties['depth'], light_rays.pixel_properties['depth']
         o_cam, d_cam = self.o, self.d
         o_light, d_light = light_rays.o, light_rays.d
 
@@ -172,7 +168,6 @@ class BatchCamRays(BatchRays):
         x = norm(x)
 
         x_gt = pts_light @ view_light.T
-        # x_gt[:, 2] = x_gt[:, 2].clip(-6,-2)
         x_gt = x_gt @ proj_light.T
         x_gt = norm(x_gt)
 
@@ -180,7 +175,7 @@ class BatchCamRays(BatchRays):
         depth_test = torch.zeros(x.shape[0])
         depth_err = torch.zeros(x.shape[0])
         depth_light = x_gt.reshape(W,H,4)[...,2]
-        bias = 0.05
+        bias = 0.1
 
         for i in range(x.shape[0]):
             w,h,z_cam = x[i,0]+1, x[i,1]+1, x[i,2]
@@ -198,7 +193,7 @@ class BatchCamRays(BatchRays):
             else:
                 depth_test[i] = 1
             depth_err[i] = abs(depth_light[H-h-1, w] - z_cam)
-        return x, x_gt, depth_test, depth_err
+        return depth_test, depth_err
 
 
     def volume_render(self, render_list):

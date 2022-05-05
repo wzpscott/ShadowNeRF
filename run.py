@@ -10,20 +10,13 @@ import matplotlib.pyplot as plt
 import pickle as pkl
 import os, os.path as osp
 
-# from load_blender import load_blender_data
 from load_data import load_blender_data
 from rays import *
 from models import NeRF, NePhong
 from encoding import frequency_encode
 from utils import *
 
-# datadir = '/home/wzpscott/NeuralRendering/NeRFLib/data/nerf_synthetic/lego'
-# half_res = True
-# testskip = 8
-# images, poses, render_poses, hwf, i_split = load_blender_data(
-#     datadir, half_res=True, testskip=8)
-
-exp_name = 'hotdog_1'
+exp_name = 'hotdog_shadow'
 base_dir = './logs'
 log_dir = osp.join(base_dir, exp_name)
 os.makedirs(log_dir, exist_ok=True)
@@ -155,7 +148,7 @@ for epoch in range(cur_epoch, NUM_EPOCHS):
     losses = []
     for rays in tqdm(np.random.choice(val_data, 10, replace=False)):
         light_rays = light_data[rays.i_light]
-        depth_cam, depth_light, rgb_cam, rgb_light, shadow, xs, x_gts = eval_shadow(
+        depth_cam, depth_light, rgb_cam, rgb_light, shadow = eval_shadow(
                                                     rays, light_rays, L_x, L_dir, model, BATCH_SIZE, NUM_SAMPLES)
         rgb_gt = rays.img_gt.cpu()
         losses.append(img2mse(rgb_cam, rgb_gt))
@@ -164,12 +157,10 @@ for epoch in range(cur_epoch, NUM_EPOCHS):
     psnr = mse2psnr(loss)
     write(f'Epoch: {epoch+1} Loss: {loss.item()} PSNR: {psnr.item()}', log_file_dir)   
 
-    xs, x_gts = xs[:, 2].reshape(W, H), x_gts[:W*H, 2].reshape(W, H)
-    xs, x_gts = (xs-xs.min())/(xs.max()-xs.min()), (x_gts-x_gts.min())/(x_gts.max()-x_gts.min())
     depth_cam, depth_light,shadow = depth_cam.reshape(W, H), depth_light.reshape(W, H), shadow.reshape(W, H)
     rgb_cam, rgb_light, rgb_gt = rgb_cam.reshape(W, H, 3), rgb_light.reshape(W, H, 3), rgb_gt.reshape(W, H, 3)
-    plot([rgb_cam, rgb_light, rgb_gt, depth_cam, depth_light, shadow, xs, x_gts], 
-        2, 4 , save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
+    plot([rgb_cam, rgb_light, rgb_gt, depth_cam, depth_light, shadow], 
+        2, 3, save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
 
 
     torch.save({
@@ -181,20 +172,20 @@ for epoch in range(cur_epoch, NUM_EPOCHS):
 
 write('--------------------------------------------------------------', log_file_dir)
 write('--------------------------------------------------------------', log_file_dir)
-write(f'start final evaluation ...', log_file_dir)
-losses = []
-for i, rays in enumerate(tqdm(val_data)):
-    rgb_pred, depth_pred, normal_pred, ambient_pred, diffuse_pred, specular_pred = eval_image(rays, L_x, L_dir, model, BATCH_SIZE, NUM_SAMPLES)
-    rgb_gt = rays.img_gt.cpu()
-    rgb_pred, depth_pred, rgb_gt = rgb_pred.reshape(W, H, 3), depth_pred.reshape(W, H), rgb_gt.reshape(W, H, 3)
-    normal_pred, ambient_pred, diffuse_pred, specular_pred = \
-        normal_pred.reshape(W, H, 3), ambient_pred.reshape(W,H,3), diffuse_pred.reshape(W,H,3), specular_pred.reshape(W,H,3)
-    plot([rgb_pred, depth_pred, rgb_gt, normal_pred, ambient_pred, diffuse_pred, specular_pred, np.ones_like(rgb_gt)], 
-        2, 4, save_dir=f'{log_dir}/test/{i}.png')
-    losses.append(img2mse(rgb_pred, rgb_gt))
-loss = sum(losses)/len(losses)
-psnr = mse2psnr(loss)
-write(f'Test: Loss: {loss.item()} PSNR: {psnr.item()}', log_file_dir)   
+# write(f'start final evaluation ...', log_file_dir)
+# losses = []
+# for i, rays in enumerate(tqdm(val_data)):
+#     rgb_pred, depth_pred, normal_pred, ambient_pred, diffuse_pred, specular_pred = eval_image(rays, L_x, L_dir, model, BATCH_SIZE, NUM_SAMPLES)
+#     rgb_gt = rays.img_gt.cpu()
+#     rgb_pred, depth_pred, rgb_gt = rgb_pred.reshape(W, H, 3), depth_pred.reshape(W, H), rgb_gt.reshape(W, H, 3)
+#     normal_pred, ambient_pred, diffuse_pred, specular_pred = \
+#         normal_pred.reshape(W, H, 3), ambient_pred.reshape(W,H,3), diffuse_pred.reshape(W,H,3), specular_pred.reshape(W,H,3)
+#     plot([rgb_pred, depth_pred, rgb_gt, normal_pred, ambient_pred, diffuse_pred, specular_pred, np.ones_like(rgb_gt)], 
+#         2, 4, save_dir=f'{log_dir}/test/{i}.png')
+#     losses.append(img2mse(rgb_pred, rgb_gt))
+# loss = sum(losses)/len(losses)
+# psnr = mse2psnr(loss)
+# write(f'Test: Loss: {loss.item()} PSNR: {psnr.item()}', log_file_dir)   
 
 
 
