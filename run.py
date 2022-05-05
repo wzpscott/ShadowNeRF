@@ -36,7 +36,7 @@ with open(log_file_dir, 'w') as fp:
 
 datadir = './data/nerf_synthetic_relight/hotdog'
 images, cam_poses, light_poses, i_light_poses, hwf, i_splits = load_blender_data(
-                                                                datadir, include_light=True, resize_factor=8)
+                                                                datadir, include_light=True, resize_factor=20)
 images = images[..., :3]*images[..., -1:] + (1.-images[..., -1:]) # white background
 
 near = 2.
@@ -64,9 +64,9 @@ optimizer = torch.optim.Adam(params=grad_vars, lr=lrate, betas=(0.9, 0.999))
 if osp.exists(osp.join(log_dir, 'checkpoint.pt')):
     checkpoint = torch.load(osp.join(log_dir, 'checkpoint.pt'))
     model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     cur_epoch = checkpoint['epoch']
-    loss = checkpoint['loss']
+    # loss = checkpoint['loss']
 model = model.to(DEVICE)
 
 data = []
@@ -177,7 +177,7 @@ for epoch in range(cur_epoch, NUM_EPOCHS):
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss,
-            }, save_dir=f'{log_dir}/checkpoint.pt')
+            }, f'{log_dir}/checkpoint.pt')
 
 write('--------------------------------------------------------------', log_file_dir)
 write('--------------------------------------------------------------', log_file_dir)

@@ -72,9 +72,6 @@ def eval_shadow(rays, light_rays, L_x, L_dir, model, batch_size=1024, num_sample
     depth_light = []
     rgb_light = []
 
-    shadow = []
-    xs = []
-    x_gts = []
     for rays_batch in rays.batchify(batch_size, random=False):
         rays_batch.sample(num_samples)
         rays_batch.encode(L_x, L_dir)
@@ -84,10 +81,10 @@ def eval_shadow(rays, light_rays, L_x, L_dir, model, batch_size=1024, num_sample
         rgb_cam.append(rays_batch.pixel_properties['rgb'].cpu())
         depth_cam.append(rays_batch.pixel_properties['depth'].cpu())
 
-        x, x_gt, depth_test, depth_err = rays_batch.shadow_mapping(light_rays,rays)
-        shadow.append(depth_err.cpu())
-        xs.append(x.cpu())
-        x_gts.append(x_gt.cpu())
+        # x, x_gt, depth_test, depth_err = rays_batch.shadow_mapping(light_rays,rays)
+        # shadow.append(depth_err.cpu())
+        # xs.append(x.cpu())
+        # x_gts.append(x_gt.cpu())
 
     
     for rays_batch in light_rays.batchify(batch_size):
@@ -104,10 +101,7 @@ def eval_shadow(rays, light_rays, L_x, L_dir, model, batch_size=1024, num_sample
     rgb_cam = torch.cat(rgb_cam,dim=0)
     depth_light = torch.cat(depth_light,dim=0)
     rgb_light = torch.cat(rgb_light,dim=0)
-    shadow = torch.cat(shadow,dim=0)
-    xs = torch.cat(xs, dim=0)
-    x_gts = x_gts[0]
-    return depth_cam, depth_light, rgb_cam, rgb_light, shadow, xs, x_gts
+    return depth_cam, depth_light, rgb_cam, rgb_light
 
 def plot(imgs, m, n, save_dir=''):
     for i, img in enumerate(imgs):

@@ -152,12 +152,13 @@ class BatchCamRays(BatchRays):
             rays_d = F.normalize(rays_d, dim=-1)
             depth = depth.reshape(-1,1)
             # depth[:,0] = depth[:,0].clip(-6,-2)
-            depth[:,0] = depth[:,0].clip(2,6)
+            # depth[:,0] = depth[:,0].clip(2,6)
             pts = rays_o + depth * rays_d
             assert pts.shape[-1] == 4
             return pts
 
-        depth_cam, depth_light = self.pixel_properties['depth'], light_rays.depth_map
+        # depth_cam, depth_light = self.pixel_properties['depth'], light_rays.depth_map
+        depth_cam, depth_light = self.pixel_properties['depth'], light_rays.pixel_properties['depth']
         o_cam, d_cam = self.o, self.d
         o_light, d_light = light_rays.o, light_rays.d
 
@@ -180,34 +181,6 @@ class BatchCamRays(BatchRays):
         depth_err = torch.zeros(x.shape[0])
         depth_light = x_gt.reshape(W,H,4)[...,2]
         bias = 0.05
-
-
-        # view_cam, proj_cam = rays.view_mat, rays.proj_mat
-        # x = pts_cam
-        # print(x[:,0].max(), x[:,0].min())
-        # print(x[:,1].max(), x[:,1].min())
-        # print(x[:,2].max(), x[:,2].min())
-        # print(x[:,3].max(), x[:,3].min())
-        # print('------------')
-        # x = x @ view_cam.T
-        # print(x[:,0].max(), x[:,0].min())
-        # print(x[:,1].max(), x[:,1].min())
-        # print(x[:,2].max(), x[:,2].min())
-        # print(x[:,3].max(), x[:,3].min())
-        # print('------------')
-        # x = x @ proj_cam.T
-        # print(x[:,0].max(), x[:,0].min())
-        # print(x[:,1].max(), x[:,1].min())
-        # print(x[:,2].max(), x[:,2].min())
-        # print(x[:,3].max(), x[:,3].min())
-        # print('------------')
-        # x = norm(x)
-
-        # print(x[:,0].max(), x[:,0].min())
-        # print(x[:,1].max(), x[:,1].min())
-        # print(x[:,2].max(), x[:,2].min())
-        # print(x[:,3].max(), x[:,3].min())
-        # raise ValueError()
 
         for i in range(x.shape[0]):
             w,h,z_cam = x[i,0]+1, x[i,1]+1, x[i,2]
@@ -242,7 +215,8 @@ class BatchCamRays(BatchRays):
         weights = alpha * torch.cumprod(
             torch.cat([torch.ones(alpha.shape[0], 1, 1), 1.-alpha + 1e-10], 1), 1)[:, :-1, :]
 
-        render_dict = {'depth':weights, 'rgb':rgb}
+        render_dict = {'depth':self.z_vals.unsqueeze(-1), 'rgb':rgb}
+
         for attr in render_list:
             render_dict[attr] = self.pts_properties[attr]
         pixel_properties = {}
@@ -331,7 +305,7 @@ class BatchLightRays(BatchRays):
         weights = alpha * torch.cumprod(
             torch.cat([torch.ones(alpha.shape[0], 1, 1), 1.-alpha + 1e-10], 1), 1)[:, :-1, :]
 
-        render_dict = {'depth':weights, 'rgb':rgb}
+        render_dict = {'depth':self.z_vals.unsqueeze(-1), 'rgb':rgb}
         for attr in render_list:
             render_dict[attr] = self.pts_properties[attr]
         pixel_properties = {}
