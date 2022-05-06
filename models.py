@@ -20,7 +20,7 @@ class NeRF(nn.Module):
         self.alpha_linear = nn.Linear(W, 1)
         self.rgb_linear = nn.Linear(W//2, 3)
 
-    def forward(self, x, dir):
+    def forward(self, x, dir, *args, **kwargs):
         h = x
         for i, l in enumerate(self.x_linears):
             h = self.x_linears[i](h)

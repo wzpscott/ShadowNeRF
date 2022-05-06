@@ -13,10 +13,9 @@ import os, os.path as osp
 from load_data import load_blender_data
 from rays import *
 from models import NeRF, NePhong
-from encoding import frequency_encode
 from utils import *
 
-exp_name = 'hotdog_shadow'
+exp_name = 'nerf_shadow_test'
 base_dir = './logs'
 log_dir = osp.join(base_dir, exp_name)
 os.makedirs(log_dir, exist_ok=True)
@@ -50,16 +49,14 @@ lrate_decay = 500
 decay_rate = 0.1
 decay_steps = lrate_decay * 1000
 
-# model = NeRF(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
-model = NePhong(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+model = NeRF(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
+# model = NePhong(x_dim=2*L_x*3+3, dir_dim=2*L_dir*3+3)
 grad_vars = list(model.parameters())
 optimizer = torch.optim.Adam(params=grad_vars, lr=lrate, betas=(0.9, 0.999))
 if osp.exists(osp.join(log_dir, 'checkpoint.pt')):
     checkpoint = torch.load(osp.join(log_dir, 'checkpoint.pt'))
     model.load_state_dict(checkpoint['model_state_dict'])
-    # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     cur_epoch = checkpoint['epoch']
-    # loss = checkpoint['loss']
 model = model.to(DEVICE)
 
 data = []
@@ -76,7 +73,8 @@ for i in range(10):
     light_data.append(LightRays(light_poses[i], W, H, focal, near, far, DEVICE))
 
 iter = 0
-render_list = ['normal', 'ambient', 'diffuse', 'specular']
+# render_list = ['normal', 'ambient', 'diffuse', 'specular']
+render_list = []
 for epoch in range(cur_epoch, NUM_EPOCHS):
     write('--------------------------------------------------------------', log_file_dir)
     write('--------------------------------------------------------------', log_file_dir)
@@ -159,7 +157,9 @@ for epoch in range(cur_epoch, NUM_EPOCHS):
 
     depth_cam, depth_light,shadow = depth_cam.reshape(W, H), depth_light.reshape(W, H), shadow.reshape(W, H)
     rgb_cam, rgb_light, rgb_gt = rgb_cam.reshape(W, H, 3), rgb_light.reshape(W, H, 3), rgb_gt.reshape(W, H, 3)
-    plot([rgb_cam, rgb_light, rgb_gt, depth_cam, depth_light, shadow], 
+
+    shadow_vis = shadow.reshape(W, H, 1) * (torch.Tensor([1,0,0])).reshape(1,1,-1).cpu() + rgb_gt
+    plot([rgb_cam, rgb_light, rgb_gt, depth_cam, depth_light, shadow_vis], 
         2, 3, save_dir=f'{log_dir}/val/epoch_{epoch+1}.png')
 
 
